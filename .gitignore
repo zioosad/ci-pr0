@@ -1,0 +1,8 @@
+/kio/
+.dvc
+
+
+mlflow_artifacts/
+mlflow.db
+
+.venv

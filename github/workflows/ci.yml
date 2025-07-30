@@ -1,0 +1,73 @@
+name: MLOps CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # Needed for DVC
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install dvc[s3]  # or dvc[gs] for GCP
+
+      - name: Install DVC
+        run: dvc version
+
+      - name: Pull Data from DVC
+        run: dvc pull
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Lint with flake8
+        run: |
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+      - name: Format with Black
+        run: black --check src/
+
+      - name: Run Tests
+        run: python -m pytest src/tests/ -v --cov=src
+
+      - name: Train Model (CI Sample)
+        run: python src/models/train.py data/raw/churn_data.csv models/model_ci.joblib
+
+      - name: Save Model Artifact
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: model-ci-artifact
+          path: models/model_ci.joblib
+
+      - name: Notify on Failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'CI Failed for ${{ github.event.pull_request ? github.event.pull_request.title : github.sha }}',
+              body: 'The CI pipeline failed. Please check the logs.'
+            })
