@@ -1,0 +1,8 @@
+LICENSE
+README.md
+setup.py
+src/ci_pr0.egg-info/PKG-INFO
+src/ci_pr0.egg-info/SOURCES.txt
+src/ci_pr0.egg-info/dependency_links.txt
+src/ci_pr0.egg-info/top_level.txt
+tests/test_preprocess.py
